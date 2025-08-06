@@ -27,6 +27,7 @@
             <InvestmentHistory 
               :history="investmentHistory"
               :currentWeek="currentWeek"
+              :products="products"
               @delete-record="deleteRecord"
               @clear-history="clearHistory"
             />
@@ -119,12 +120,14 @@ export default {
       this.saveToLocalStorage()
     },
     saveWeekData(record) {
-      // 新的数据格式：单条记录而不是整周数据
+      // 新的数据格式：包含产品记录的汇总记录
       this.investmentHistory.push(record)
       this.saveToLocalStorage()
     },
     deleteRecord(record) {
-      const index = this.investmentHistory.findIndex(item => item.week === record.week)
+      const index = this.investmentHistory.findIndex(item => 
+        item.week === record.week && item.date === record.date
+      )
       if (index !== -1) {
         this.investmentHistory.splice(index, 1)
         this.saveToLocalStorage()
