@@ -136,6 +136,30 @@ market/
 4. 建议定期导出重要数据作为备份
 5. 每个产品的计算是独立的，不会相互影响
 
+## GitHub Pages 部署
+
+### 自动部署（推荐）
+
+1. 将代码推送到GitHub仓库
+2. 在仓库设置中启用GitHub Pages：
+   - 进入仓库的 Settings > Pages
+   - Source 选择 "GitHub Actions"
+3. 每次推送到main分支时，GitHub Actions会自动构建并部署
+
+### 手动部署
+
+1. 构建项目：
+   ```bash
+   npm run build
+   ```
+
+2. 将 `dist` 目录的内容推送到 `gh-pages` 分支
+
+### 访问地址
+
+部署成功后，可以通过以下地址访问：
+- `https://[用户名].github.io/[仓库名]/`
+
 ## 许可证
 
 MIT License 
