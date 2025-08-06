@@ -33,7 +33,7 @@
       <div v-else>
         <!-- 汇总记录表格 -->
         <el-table :data="filteredHistory" style="width: 100%">
-          <el-table-column prop="week" label="周数" width="80" />
+          <el-table-column prop="week" label="期数" width="80" />
           
           <el-table-column prop="date" label="日期" width="180">
             <template #default="scope">
@@ -41,7 +41,7 @@
             </template>
           </el-table-column>
           
-          <el-table-column prop="totalWeeklyInvestment" label="本周总定投" width="120">
+          <el-table-column prop="totalWeeklyInvestment" label="本期总定投" width="120">
             <template #default="scope">
               {{ formatMoney(scope.row.totalWeeklyInvestment) }}
             </template>
@@ -88,7 +88,7 @@
           </el-divider>
           
           <el-table :data="productHistory" style="width: 100%">
-            <el-table-column prop="week" label="周数" width="80" />
+            <el-table-column prop="week" label="期数" width="80" />
             
             <el-table-column prop="date" label="日期" width="180">
               <template #default="scope">
@@ -104,11 +104,11 @@
             
             <el-table-column prop="targetValue" label="目标市值" width="120">
               <template #default="scope">
-                {{ formatMoney(scope.row.targetValue) }}
+                {{ formatMoney(calculateProductTargetValue(selectedProduct, scope.row.week)) }}
               </template>
             </el-table-column>
             
-            <el-table-column prop="weeklyInvestment" label="本周定投" width="120">
+            <el-table-column prop="weeklyInvestment" label="本期定投" width="120">
               <template #default="scope">
                 <span :class="{ 'profit': scope.row.weeklyInvestment < 0, 'investment': scope.row.weeklyInvestment > 0 }">
                   {{ formatMoney(scope.row.weeklyInvestment) }}
@@ -118,14 +118,14 @@
             
             <el-table-column prop="totalInvested" label="累计投资" width="120">
               <template #default="scope">
-                {{ formatMoney(scope.row.totalInvested) }}
+                {{ formatMoney(calculateProductTotalInvested(selectedProduct, scope.row.week)) }}
               </template>
             </el-table-column>
             
             <el-table-column prop="profitRate" label="收益率" width="100">
               <template #default="scope">
-                <span :class="{ 'profit': scope.row.profitRate > 0, 'loss': scope.row.profitRate < 0 }">
-                  {{ formatPercentage(scope.row.profitRate) }}
+                <span :class="{ 'profit': calculateProductProfitRate(selectedProduct, scope.row.currentMarketValue, scope.row.week) > 0, 'loss': calculateProductProfitRate(selectedProduct, scope.row.currentMarketValue, scope.row.week) < 0 }">
+                  {{ formatPercentage(calculateProductProfitRate(selectedProduct, scope.row.currentMarketValue, scope.row.week)) }}
                 </span>
               </template>
             </el-table-column>
@@ -148,16 +148,16 @@
     </el-card>
     
     <!-- 详情对话框 -->
-    <el-dialog v-model="detailDialogVisible" title="周度详情" width="90%">
+    <el-dialog v-model="detailDialogVisible" title="期度详情" width="90%">
       <div v-if="selectedRecord">
-        <h4>第{{ selectedRecord.week }}周定投详情</h4>
+        <h4>第{{ selectedRecord.week }}期定投详情</h4>
         
         <!-- 汇总信息 -->
         <el-descriptions :column="3" border style="margin-bottom: 20px;">
           <el-descriptions-item label="记录时间">
             {{ formatDate(selectedRecord.date) }}
           </el-descriptions-item>
-          <el-descriptions-item label="本周总定投">
+          <el-descriptions-item label="本期总定投">
             {{ formatMoney(selectedRecord.totalWeeklyInvestment) }}
           </el-descriptions-item>
           <el-descriptions-item label="总市值">
@@ -196,11 +196,11 @@
             
             <el-table-column prop="targetValue" label="目标市值" width="120">
               <template #default="scope">
-                {{ formatMoney(scope.row.targetValue) }}
+                {{ formatMoney(calculateProductTargetValue(selectedProduct, scope.row.week)) }}
               </template>
             </el-table-column>
             
-            <el-table-column prop="weeklyInvestment" label="本周定投" width="120">
+            <el-table-column prop="weeklyInvestment" label="本期定投" width="120">
               <template #default="scope">
                 <span :class="{ 'profit': scope.row.weeklyInvestment < 0, 'investment': scope.row.weeklyInvestment > 0 }">
                   {{ formatMoney(scope.row.weeklyInvestment) }}
@@ -210,14 +210,14 @@
             
             <el-table-column prop="totalInvested" label="累计投资" width="120">
               <template #default="scope">
-                {{ formatMoney(scope.row.totalInvested) }}
+                {{ formatMoney(calculateProductTotalInvested(selectedProduct, scope.row.week)) }}
               </template>
             </el-table-column>
             
             <el-table-column prop="profitRate" label="收益率" width="100">
               <template #default="scope">
-                <span :class="{ 'profit': scope.row.profitRate > 0, 'loss': scope.row.profitRate < 0 }">
-                  {{ formatPercentage(scope.row.profitRate) }}
+                <span :class="{ 'profit': calculateProductProfitRate(selectedProduct, scope.row.currentMarketValue, scope.row.week) > 0, 'loss': calculateProductProfitRate(selectedProduct, scope.row.currentMarketValue, scope.row.week) < 0 }">
+                  {{ formatPercentage(calculateProductProfitRate(selectedProduct, scope.row.currentMarketValue, scope.row.week)) }}
                 </span>
               </template>
             </el-table-column>
@@ -316,17 +316,17 @@ export default {
         }
       })
       
-      // 按周数排序
+      // 按期数排序
       return productRecords.sort((a, b) => a.week - b.week)
     },
     sortedHistory() {
-      // 按周数分组记录
+      // 按期数分组记录
       const weekGroups = {}
       this.history.forEach(record => {
-        // 使用记录中的周数，如果没有则按时间顺序推断
+        // 使用记录中的期数，如果没有则按时间顺序推断
         let week = record.week || 1
         if (!week && this.history.length > 1) {
-          // 如果有多个记录，按时间顺序分配周数
+          // 如果有多个记录，按时间顺序分配期数
           const sortedRecords = [...this.history].sort((a, b) => new Date(a.date) - new Date(b.date))
           const recordIndex = sortedRecords.findIndex(r => r.date === record.date)
           week = recordIndex + 1
@@ -338,18 +338,17 @@ export default {
         weekGroups[week].push(record)
       })
       
-      // 转换为周度数据格式
+              // 转换为期度数据格式
       return Object.keys(weekGroups).sort((a, b) => parseInt(a) - parseInt(b)).map((week, index) => {
         const weekRecords = weekGroups[week]
-        const latestRecord = weekRecords[weekRecords.length - 1] // 取该周最新记录
+        const latestRecord = weekRecords[weekRecords.length - 1] // 取该期最新记录
         const weekNumber = parseInt(week)
         
-        // 计算累计投资金额：使用产品记录中的totalInvested字段
+        // 计算累计投资金额：实时计算所有产品的累计投资
         let totalInvested = 0
         if (latestRecord.productRecords && latestRecord.productRecords.length > 0) {
-          // 如果有产品记录，使用产品记录中的累计投资数据
           totalInvested = latestRecord.productRecords.reduce((sum, productRecord) => {
-            return sum + (productRecord.totalInvested || 0)
+            return sum + this.calculateProductTotalInvested(productRecord.productId, latestRecord.week)
           }, 0)
         } else {
           // 如果没有产品记录，使用历史记录中的累计投资
@@ -361,16 +360,30 @@ export default {
           }
         }
         
+        // 实时计算总目标市值
+        let totalTargetValue = 0
+        if (latestRecord.productRecords && latestRecord.productRecords.length > 0) {
+          totalTargetValue = latestRecord.productRecords.reduce((sum, productRecord) => {
+            return sum + this.calculateProductTargetValue(productRecord.productId, latestRecord.week)
+          }, 0)
+        }
+        
+        // 实时计算总收益率 - 确保只计算一条总收益率线
+        let totalProfitRate = 0
+        if (totalInvested > 0 && latestRecord.totalMarketValue > 0) {
+          totalProfitRate = ((latestRecord.totalMarketValue - totalInvested) / totalInvested) * 100
+        }
+        
         return {
           week: weekNumber,
           date: latestRecord.date,
           totalWeeklyInvestment: latestRecord.totalWeeklyInvestment || 0,
           totalMarketValue: latestRecord.totalMarketValue || 0,
-          totalTargetValue: latestRecord.totalTargetValue || 0,
-          totalProfitRate: latestRecord.totalProfitRate || 0,
+          totalTargetValue: totalTargetValue, // 添加总目标市值字段
+          totalProfitRate: totalProfitRate, // 添加总收益率字段
           totalInvested: totalInvested, // 添加累计投资字段
           productRecords: latestRecord.productRecords || [],
-          data: weekRecords // 保存该周所有记录用于详情显示
+          data: weekRecords // 保存该期所有记录用于详情显示
         }
       })
     }
@@ -418,6 +431,57 @@ export default {
       const product = this.products.find(p => p.id === productId)
       return product ? product.name : '未知产品'
     },
+    calculateProductTotalInvested(productId, currentWeek) {
+      // 实时计算产品的累计投资
+      let totalInvested = 0
+      
+      // 从历史记录中累加该产品当前期及之前所有期的定投金额
+      this.history.forEach(record => {
+        if (record.productRecords) {
+          const productRecord = record.productRecords.find(pr => pr.productId === productId)
+          if (productRecord && record.week <= currentWeek) {
+            totalInvested += productRecord.weeklyInvestment || 0
+          }
+        }
+      })
+      
+      return totalInvested
+    },
+    calculateProductTargetValue(productId, week) {
+      // 实时计算产品的目标市值
+      const product = this.products.find(p => p.id === productId)
+      if (!product) return 0
+      
+      // 找到该产品在历史记录中首次出现的期数
+      let firstWeek = null
+      for (let i = 0; i < this.history.length; i++) {
+        const record = this.history[i]
+        if (record.productRecords) {
+          const productRecord = record.productRecords.find(pr => pr.productId === productId)
+          if (productRecord) {
+            firstWeek = record.week
+            break
+          }
+        }
+      }
+      
+      if (firstWeek === null) {
+        // 如果产品从未在历史记录中出现过，说明是新产品，从当前期开始算作第1期
+        const relativeWeek = 1
+        return product.weeklyAmount * product.targetMultiplier * relativeWeek
+      } else {
+        // 如果产品在历史记录中出现过，计算相对期数
+        const relativeWeek = week - firstWeek + 1
+        return product.weeklyAmount * product.targetMultiplier * relativeWeek
+      }
+    },
+    calculateProductProfitRate(productId, currentMarketValue, week) {
+      // 实时计算产品的收益率
+      const totalInvested = this.calculateProductTotalInvested(productId, week)
+      if (totalInvested === 0) return 0
+      
+      return ((currentMarketValue - totalInvested) / totalInvested) * 100
+    },
     formatDate(dateString) {
       return new Date(dateString).toLocaleDateString('zh-CN')
     },
@@ -460,9 +524,9 @@ export default {
       if (this.selectedProduct === 'all' || !this.selectedProduct) {
         // 导出汇总数据
         data = this.filteredHistory.map(record => ({
-          周数: record.week,
+          期数: record.week,
           日期: this.formatDate(record.date),
-          本周总定投: this.formatMoney(record.totalWeeklyInvestment),
+          本期总定投: this.formatMoney(record.totalWeeklyInvestment),
           总市值: this.formatMoney(record.totalMarketValue),
           总目标市值: this.formatMoney(record.totalTargetValue),
           总收益率: this.formatPercentage(record.totalProfitRate)
@@ -470,12 +534,12 @@ export default {
       } else {
         // 导出产品数据
         data = this.productHistory.map(record => ({
-          周数: record.week,
+          期数: record.week,
           日期: this.formatDate(record.date),
           产品名称: record.productName,
           当前市值: this.formatMoney(record.currentMarketValue),
           目标市值: this.formatMoney(record.targetValue),
-          本周定投: this.formatMoney(record.weeklyInvestment),
+          本期定投: this.formatMoney(record.weeklyInvestment),
           累计投资: this.formatMoney(record.totalInvested),
           收益率: this.formatPercentage(record.profitRate),
           状态: record.status
@@ -561,6 +625,7 @@ export default {
         const totalTargetValues = data.map(item => item.totalTargetValue || 0)
         const totalProfitRates = data.map(item => item.totalProfitRate || 0)
         
+        // 确保只显示一条总收益率线
         const option = {
           title: {
             text: title,
@@ -569,7 +634,7 @@ export default {
           tooltip: {
             trigger: 'axis',
             formatter: function(params) {
-              let result = `第${params[0].axisValue}周<br/>`
+              let result = `第${params[0].axisValue}期<br/>`
               params.forEach(param => {
                 if (param.seriesName === '总收益率') {
                   result += `${param.seriesName}: ${param.value.toFixed(2)}%<br/>`
@@ -581,13 +646,14 @@ export default {
             }
           },
           legend: {
-            data: ['本周总定投', '累计投资', '总目标市值', '总收益率'],
-            top: 30
+            data: ['本期总定投', '累计投资', '总目标市值', '总收益率'],
+            top: 30,
+            selectedMode: true
           },
           xAxis: {
             type: 'category',
             data: weeks,
-            name: '周数'
+            name: '期数'
           },
           yAxis: [
             {
@@ -603,7 +669,7 @@ export default {
           ],
           series: [
             {
-              name: '本周总定投',
+              name: '本期总定投',
               type: 'line',
               data: totalWeeklyInvestments,
               yAxisIndex: 0,
@@ -638,7 +704,9 @@ export default {
           animation: false
         }
         
-        this.chart.setOption(option)
+        // 清除之前的图表配置，确保只显示当前配置的系列
+        this.chart.clear()
+        this.chart.setOption(option, true) // 第二个参数 true 表示不合并配置，完全替换
       } else {
         // 显示产品数据
         if (this.productHistory.length === 0) {
@@ -650,10 +718,10 @@ export default {
         
         const weeks = data.map(item => item.week)
         const currentMarketValues = data.map(item => item.currentMarketValue || 0)
-        const targetValues = data.map(item => item.targetValue || 0)
+        const targetValues = data.map(item => this.calculateProductTargetValue(this.selectedProduct, item.week))
         const weeklyInvestments = data.map(item => item.weeklyInvestment || 0)
-        const totalInvested = data.map(item => item.totalInvested || 0)
-        const profitRates = data.map(item => item.profitRate || 0)
+        const totalInvested = data.map(item => this.calculateProductTotalInvested(this.selectedProduct, item.week))
+        const profitRates = data.map(item => this.calculateProductProfitRate(this.selectedProduct, item.currentMarketValue || 0, item.week))
         
         title = `${this.getProductName(this.selectedProduct)} - 投资趋势`
         
@@ -665,7 +733,7 @@ export default {
           tooltip: {
             trigger: 'axis',
             formatter: function(params) {
-              let result = `第${params[0].axisValue}周<br/>`
+              let result = `第${params[0].axisValue}期<br/>`
               params.forEach(param => {
                 if (param.seriesName === '收益率') {
                   result += `${param.seriesName}: ${param.value.toFixed(2)}%<br/>`
@@ -677,13 +745,14 @@ export default {
             }
           },
           legend: {
-            data: ['当前市值', '目标市值', '本周定投', '累计投资', '收益率'],
-            top: 30
+            data: ['当前市值', '目标市值', '本期定投', '累计投资', '收益率'],
+            top: 30,
+            selectedMode: true
           },
           xAxis: {
             type: 'category',
             data: weeks,
-            name: '周数'
+            name: '期数'
           },
           yAxis: [
             {
@@ -715,7 +784,7 @@ export default {
               smooth: true
             },
             {
-              name: '本周定投',
+              name: '本期定投',
               type: 'line',
               data: weeklyInvestments,
               yAxisIndex: 0,
@@ -742,7 +811,9 @@ export default {
           animation: false
         }
         
-        this.chart.setOption(option)
+        // 清除之前的图表配置，确保只显示当前配置的系列
+        this.chart.clear()
+        this.chart.setOption(option, true) // 第二个参数 true 表示不合并配置，完全替换
       }
     },
     handleResize() {

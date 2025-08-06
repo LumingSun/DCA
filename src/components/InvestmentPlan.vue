@@ -18,7 +18,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="weeklyAmount" label="周定投金额" width="180">
+                    <el-table-column prop="weeklyAmount" label="期定投金额" width="180">
           <template #default="{ row }">
             <el-input-number 
               v-model="row.weeklyAmount" 
@@ -48,15 +48,24 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="120">
+        <el-table-column label="操作" width="200">
           <template #default="{ $index }">
-            <el-button 
-              type="danger" 
-              size="small" 
-              @click="removeProduct($index)"
-            >
-              删除
-            </el-button>
+            <div style="display: flex; gap: 8px;">
+              <el-button 
+                type="success" 
+                size="small" 
+                @click="saveProduct($index)"
+              >
+                保存
+              </el-button>
+              <el-button 
+                type="danger" 
+                size="small" 
+                @click="removeProduct($index)"
+              >
+                删除
+              </el-button>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -69,8 +78,8 @@
           show-icon
         >
           <p><strong>市值恒定定投法原理：</strong></p>
-          <p>1. 第一周按预设金额定投</p>
-          <p>2. 第二周开始，计算目标市值 = 周定投金额 × 目标倍数 × 当前周数</p>
+                  <p>1. 第一期按预设金额定投</p>
+        <p>2. 第二期开始，计算目标市值 = 期定投金额 × 目标倍数 × 当前期数</p>
           <p>3. 追加投资金额 = 目标市值 - 当前累计市值</p>
           <p>4. 如果当前市值超过目标市值，则卖出超出部分获利了结</p>
         </el-alert>
@@ -101,8 +110,10 @@ export default {
   watch: {
     products: {
       handler(newProducts) {
-        // 避免循环更新
-        if (JSON.stringify(this.localProducts) !== JSON.stringify(newProducts)) {
+        // 避免循环更新 - 使用更严格的比较
+        const currentStr = JSON.stringify(this.localProducts)
+        const newStr = JSON.stringify(newProducts)
+        if (currentStr !== newStr) {
           this.localProducts = JSON.parse(JSON.stringify(newProducts))
         }
       },
@@ -111,8 +122,10 @@ export default {
     },
     localProducts: {
       handler(newProducts) {
-        // 避免循环更新
-        if (JSON.stringify(this.products) !== JSON.stringify(newProducts)) {
+        // 避免循环更新 - 使用更严格的比较
+        const currentStr = JSON.stringify(this.products)
+        const newStr = JSON.stringify(newProducts)
+        if (currentStr !== newStr) {
           this.$emit('update:products', newProducts)
         }
       },
@@ -131,7 +144,14 @@ export default {
       this.localProducts.push(newProduct)
     },
     removeProduct(index) {
-      this.localProducts.splice(index, 1)
+      // 创建新数组确保响应式更新
+      this.localProducts = this.localProducts.filter((_, i) => i !== index)
+    },
+    saveProduct(index) {
+      // 强制触发响应式更新并发送到父组件
+      this.localProducts = [...this.localProducts]
+      this.$emit('update:products', this.localProducts)
+      this.$message.success('产品设置已保存')
     }
   }
 }

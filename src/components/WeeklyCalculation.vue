@@ -3,26 +3,36 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>第{{ currentWeek }}周定投计算</span>
+          <span>第{{ currentWeek }}期定投计算</span>
           <div class="week-controls">
             <el-button @click="previousWeek" :disabled="currentWeek <= 1">
               <el-icon><ArrowLeft /></el-icon>
-              上一周
+              上一期
             </el-button>
             <el-button type="primary" @click="nextWeek">
-              下一周
+              下一期
               <el-icon><ArrowRight /></el-icon>
             </el-button>
           </div>
         </div>
       </template>
       
-      <!-- 第一周提示 -->
+      <!-- 第一期提示 -->
       <el-alert 
         v-if="currentWeek === 1" 
-        title="第一周提示" 
+        title="第一期提示" 
         type="info" 
-        description="第一周时，如果还没有开始投资，当前总市值可以填写0"
+        description="第一期时，如果还没有开始投资，当前总市值可以填写0"
+        :closable="false"
+        style="margin-bottom: 16px"
+      />
+      
+      <!-- 新产品提示 -->
+      <el-alert 
+        v-if="hasNewProducts" 
+        title="新产品提示" 
+        type="warning" 
+        description="检测到新产品，新产品将从当前期开始定投，累计投资从0开始计算"
         :closable="false"
         style="margin-bottom: 16px"
       />
@@ -39,7 +49,7 @@
               <div class="product-header">
                 <span class="product-name">{{ product.name }}</span>
                 <el-tag :color="product.color" text-color="white">
-                  周定投 {{ formatMoney(product.weeklyAmount) }}
+                  期定投 {{ formatMoney(product.weeklyAmount) }}
                 </el-tag>
               </div>
             </template>
@@ -52,7 +62,7 @@
                     v-model="productData[product.id].currentMarketValue" 
                     :min="0" 
                     :precision="2"
-                    :placeholder="currentWeek === 1 ? '第一周可填写0' : '请输入当前市值'"
+                    :placeholder="currentWeek === 1 ? '第一期可填写0' : '请输入当前市值'"
                     style="width: 100%"
                     @change="calculateProductInvestment(product.id)"
                   />
@@ -68,7 +78,7 @@
               </el-col>
               <el-col :span="8">
                 <div class="input-group">
-                  <label class="input-label">本周定投：</label>
+                  <label class="input-label">本期定投：</label>
                   <div class="investment-amount-display">
                     <span class="amount">{{ formatMoney(productData[product.id].weeklyInvestment) }}</span>
                     <el-tag :type="getInvestmentType(productData[product.id].weeklyInvestment)" class="investment-tag">
@@ -80,7 +90,7 @@
             </el-row>
             
             <!-- 产品计算详情 -->
-            <div class="product-details" v-if="productData[product.id].currentMarketValue >= 0">
+            <div class="product-details" v-if="productData[product.id] && productData[product.id].currentMarketValue >= 0">
               <el-divider content-position="left">计算详情</el-divider>
               
               <el-descriptions :column="2" border size="small">
@@ -125,7 +135,7 @@
           </el-col>
           <el-col :span="6">
             <div class="summary-item">
-              <label class="summary-label">本周总定投：</label>
+              <label class="summary-label">本期总定投：</label>
               <div class="summary-value" :class="{ 'profit': totalWeeklyInvestment < 0, 'investment': totalWeeklyInvestment > 0 }">
                 {{ formatMoney(totalWeeklyInvestment) }}
               </div>
@@ -199,9 +209,9 @@ export default {
       }, 0)
     },
     totalInvestedAmount() {
-      // 总累计投资应该是本周之前的累计投资，不包含本周的定投金额
+      // 总累计投资应该是本期之前的累计投资，不包含本期的定投金额
       return this.products.reduce((sum, product) => {
-        return sum + ((this.currentWeek - 1) * product.weeklyAmount)
+        return sum + this.getProductTotalInvested(product.id)
       }, 0)
     },
     totalProfitRate() {
@@ -213,6 +223,12 @@ export default {
       return this.products.every(product => 
         this.productData[product.id]?.currentMarketValue >= 0
       )
+    },
+    hasNewProducts() {
+      // 检查是否有新产品（没有历史投资记录的产品）
+      return this.products.some(product => {
+        return this.getProductTotalInvested(product.id) === 0
+      })
     }
   },
   watch: {
@@ -241,7 +257,27 @@ export default {
       })
     },
     getProductTargetValue(product) {
-      return product.weeklyAmount * product.targetMultiplier * this.currentWeek
+      // 找到该产品在历史记录中首次出现的期数
+      let firstWeek = null
+      for (let i = 0; i < this.history.length; i++) {
+        const record = this.history[i]
+        if (record.productRecords) {
+          const productRecord = record.productRecords.find(pr => pr.productId === product.id)
+          if (productRecord) {
+            firstWeek = record.week
+            break
+          }
+        }
+      }
+      
+      if (firstWeek === null) {
+        // 如果产品从未在历史记录中出现过，说明是新产品，从当前期开始算作第1期
+        return product.weeklyAmount * product.targetMultiplier * 1
+      } else {
+        // 如果产品在历史记录中出现过，计算相对期数
+        const relativeWeek = this.currentWeek - firstWeek + 1
+        return product.weeklyAmount * product.targetMultiplier * relativeWeek
+      }
     },
     getProductMarketValueDifference(productId) {
       const product = this.products.find(p => p.id === productId)
@@ -252,11 +288,11 @@ export default {
       return targetValue - currentValue
     },
     getProductTotalInvested(productId) {
-      // 累计投资应该是本周之前的累计投资，不包含本周的定投金额
+      // 累计投资应该是本期之前的累计投资，不包含本期的定投金额
       // 需要从历史记录中累加实际投入的金额
       let totalInvested = 0
       
-      // 从历史记录中累加该产品之前所有周的定投金额
+              // 从历史记录中累加该产品之前所有期的定投金额
       this.history.forEach(record => {
         if (record.productRecords) {
           const productRecord = record.productRecords.find(pr => pr.productId === productId)
@@ -272,11 +308,11 @@ export default {
       const product = this.products.find(p => p.id === productId)
       if (!product) return 0
       
-      // 计算当前累计投资（不包含本周的定投金额）
+              // 计算当前累计投资（不包含本期的定投金额）
       const totalInvested = this.getProductTotalInvested(productId)
       const currentValue = this.productData[productId]?.currentMarketValue || 0
       
-      // 如果累计投资为0（第一周），返回0%
+              // 如果累计投资为0（第一期），返回0%
       if (totalInvested === 0) return 0
       
       return ((currentValue - totalInvested) / totalInvested) * 100
@@ -286,14 +322,15 @@ export default {
       if (!product) return
       
       const currentValue = this.productData[productId]?.currentMarketValue || 0
+      const historicalTotalInvested = this.getProductTotalInvested(productId)
       
-      // 第一周时，如果当前市值为0，则按计划金额定投
-      if (this.currentWeek === 1 && currentValue <= 0) {
+      // 如果是新产品（没有历史投资记录）且当前市值为0，则按计划金额定投
+      if (historicalTotalInvested === 0 && currentValue <= 0) {
         this.productData[productId].weeklyInvestment = product.weeklyAmount
         return
       }
       
-      // 其他情况：计算本周应定投金额
+              // 其他情况：计算本期应定投金额
       const targetValue = this.getProductTargetValue(product)
       this.productData[productId].weeklyInvestment = targetValue - currentValue
     },
@@ -330,15 +367,6 @@ export default {
         const newMarketValue = (this.productData[product.id]?.currentMarketValue || 0) + 
                               (this.productData[product.id]?.weeklyInvestment || 0)
         
-        // 计算累计投资：历史累计投资 + 本周定投金额
-        // 注意：本周定投金额可能为负数（获利了结）
-        const historicalTotalInvested = this.getProductTotalInvested(product.id)
-        const weeklyInvestment = this.productData[product.id]?.weeklyInvestment || 0
-        const totalInvestedForRecord = historicalTotalInvested + weeklyInvestment
-        
-        // 计算收益率：基于累计投资计算
-        const profitRateForRecord = totalInvestedForRecord > 0 ? ((newMarketValue - totalInvestedForRecord) / totalInvestedForRecord) * 100 : 0
-        
         return {
           productId: product.id,
           productName: product.name,
@@ -346,10 +374,7 @@ export default {
           week: this.currentWeek,
           currentMarketValue: newMarketValue,
           weeklyInvestment: this.productData[product.id]?.weeklyInvestment || 0,
-          status: this.getInvestmentStatus(this.productData[product.id]?.weeklyInvestment || 0),
-          targetValue: this.getProductTargetValue(product),
-          totalInvested: totalInvestedForRecord,
-          profitRate: profitRateForRecord
+          status: this.getInvestmentStatus(this.productData[product.id]?.weeklyInvestment || 0)
         }
       })
       
@@ -359,8 +384,6 @@ export default {
         week: this.currentWeek,
         totalMarketValue: this.totalCurrentValue + this.totalWeeklyInvestment,
         totalWeeklyInvestment: this.totalWeeklyInvestment,
-        totalTargetValue: this.totalTargetValue,
-        totalProfitRate: this.totalProfitRate,
         productRecords: productRecords
       }
       
@@ -389,7 +412,7 @@ export default {
         }
       })
       
-      // 重新计算所有产品的本周定投金额
+              // 重新计算所有产品的本期定投金额
       this.products.forEach(product => {
         this.calculateProductInvestment(product.id)
       })
@@ -398,7 +421,7 @@ export default {
       this.products.forEach(product => {
         if (this.productData[product.id]) {
           this.productData[product.id].currentMarketValue = 0
-          // 第一周时默认显示计划定投金额，其他周时显示0
+          // 第一期时默认显示计划定投金额，其他期时显示0
           if (this.currentWeek === 1) {
             this.productData[product.id].weeklyInvestment = product.weeklyAmount
           } else {

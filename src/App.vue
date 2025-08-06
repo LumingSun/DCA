@@ -14,7 +14,7 @@
             />
           </el-tab-pane>
           
-          <el-tab-pane label="周度计算" name="weekly">
+          <el-tab-pane label="期度计算" name="weekly">
             <WeeklyCalculation 
               :products="products" 
               :currentWeek="currentWeek"
@@ -153,19 +153,12 @@ export default {
         this.products = parsed.products || this.products
         this.currentWeek = parsed.currentWeek || 1
         this.investmentHistory = parsed.history || []
+      } else {
       }
     }
   },
   mounted() {
     this.loadFromLocalStorage()
-    console.log('App mounted successfully')
-    
-    // 添加调试功能：在控制台输入 clearData() 可以清除localStorage
-    window.clearData = () => {
-      localStorage.removeItem('investmentData')
-      console.log('localStorage已清除')
-      location.reload()
-    }
   },
   beforeUnmount() {
     // 清理定时器

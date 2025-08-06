@@ -174,7 +174,17 @@ export default {
       const productAnalyses = []
       
       latestRecord.productRecords.forEach(productRecord => {
-        const totalInvested = productRecord.totalInvested || 0
+        // 实时计算累计投资
+        let totalInvested = 0
+        this.history.forEach(record => {
+          if (record.productRecords) {
+            const pr = record.productRecords.find(p => p.productId === productRecord.productId)
+            if (pr && record.week <= latestRecord.week) {
+              totalInvested += pr.weeklyInvestment || 0
+            }
+          }
+        })
+        
         const currentValue = productRecord.currentMarketValue || 0
         const profitAmount = currentValue - totalInvested
         const profitRate = totalInvested > 0 ? (profitAmount / totalInvested) * 100 : 0
