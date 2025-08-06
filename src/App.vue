@@ -31,6 +31,7 @@
               :products="products"
               @delete-record="deleteRecord"
               @clear-history="clearHistory"
+              @update-record-date="updateRecordDate"
             />
           </el-tab-pane>
           
@@ -137,6 +138,17 @@ export default {
     clearHistory() {
       this.investmentHistory = []
       this.saveToLocalStorage()
+    },
+    updateRecordDate({ record, oldDate, newDate }) {
+      // 更新历史记录中的日期
+      const historyRecord = this.investmentHistory.find(item => 
+        item.week === record.week && item.date === oldDate
+      )
+      
+      if (historyRecord) {
+        historyRecord.date = newDate
+        this.saveToLocalStorage()
+      }
     },
     saveToLocalStorage() {
       const data = {

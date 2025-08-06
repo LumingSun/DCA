@@ -37,7 +37,23 @@
           
           <el-table-column prop="date" label="日期" width="180">
             <template #default="scope">
-              {{ formatDate(scope.row.date) }}
+              <div v-if="scope.row.editingDate">
+                <el-date-picker
+                  v-model="scope.row.editingDate"
+                  type="date"
+                  placeholder="选择日期"
+                  format="YYYY-MM-DD"
+                  value-format="YYYY-MM-DD"
+                  style="width: 140px;"
+                  @change="saveDate(scope.row)"
+                />
+              </div>
+              <div v-else @click="editDate(scope.row)" style="cursor: pointer;">
+                {{ formatDate(scope.row.date) }}
+                <el-icon style="margin-left: 5px; font-size: 12px; color: #909399;">
+                  <Edit />
+                </el-icon>
+              </div>
             </template>
           </el-table-column>
           
@@ -92,7 +108,23 @@
             
             <el-table-column prop="date" label="日期" width="180">
               <template #default="scope">
-                {{ formatDate(scope.row.date) }}
+                <div v-if="scope.row.editingDate">
+                  <el-date-picker
+                    v-model="scope.row.editingDate"
+                    type="date"
+                    placeholder="选择日期"
+                    format="YYYY-MM-DD"
+                    value-format="YYYY-MM-DD"
+                    style="width: 140px;"
+                    @change="saveProductDate(scope.row)"
+                  />
+                </div>
+                <div v-else @click="editProductDate(scope.row)" style="cursor: pointer;">
+                  {{ formatDate(scope.row.date) }}
+                  <el-icon style="margin-left: 5px; font-size: 12px; color: #909399;">
+                    <Edit />
+                  </el-icon>
+                </div>
               </template>
             </el-table-column>
             
@@ -237,14 +269,15 @@
 </template>
 
 <script>
-import { Download, Delete } from '@element-plus/icons-vue'
+import { Download, Delete, Edit } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 
 export default {
   name: 'InvestmentHistory',
   components: {
     Download,
-    Delete
+    Delete,
+    Edit
   },
   props: {
     history: {
@@ -576,6 +609,52 @@ export default {
         this.$emit('clear-history')
         this.$message.success('历史记录已清空')
       })
+    },
+    editDate(record) {
+      // 开始编辑日期
+      record.editingDate = record.date
+    },
+    saveDate(record) {
+      // 保存日期修改
+      if (record.editingDate && record.editingDate !== record.date) {
+        const oldDate = record.date
+        record.date = record.editingDate
+        
+        // 发出事件通知父组件更新历史记录
+        this.$emit('update-record-date', {
+          record: record,
+          oldDate: oldDate,
+          newDate: record.editingDate
+        })
+        
+        this.$message.success('日期已更新')
+      }
+      
+      // 清除编辑状态
+      record.editingDate = null
+    },
+    editProductDate(record) {
+      // 开始编辑产品日期
+      record.editingDate = record.date
+    },
+    saveProductDate(record) {
+      // 保存产品日期修改
+      if (record.editingDate && record.editingDate !== record.date) {
+        const oldDate = record.date
+        record.date = record.editingDate
+        
+        // 发出事件通知父组件更新历史记录
+        this.$emit('update-record-date', {
+          record: record,
+          oldDate: oldDate,
+          newDate: record.editingDate
+        })
+        
+        this.$message.success('日期已更新')
+      }
+      
+      // 清除编辑状态
+      record.editingDate = null
     },
     initChart() {
       if (this.$refs.chartContainer) {
