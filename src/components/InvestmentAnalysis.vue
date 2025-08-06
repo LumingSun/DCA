@@ -11,6 +11,10 @@
         <el-empty description="暂无投资产品数据" />
       </div>
       
+      <div v-else-if="history.length === 0" class="empty-state">
+        <el-empty description="暂无历史记录数据" />
+      </div>
+      
       <div v-else>
         <!-- 产品表现对比 -->
         <div class="analysis-section">
@@ -141,28 +145,57 @@ export default {
         return []
       }
       
-      // 使用最新的记录数据
+      // 获取最新的历史记录
       const latestRecord = this.history[this.history.length - 1]
+      
+      if (!latestRecord.productRecords || latestRecord.productRecords.length === 0) {
+        // 如果没有产品记录，创建一个汇总分析
+        const totalInvested = latestRecord.totalMarketValue - latestRecord.totalWeeklyInvestment
+        const profitAmount = latestRecord.totalMarketValue - totalInvested
+        const profitRate = totalInvested > 0 ? (profitAmount / totalInvested) * 100 : 0
+        
+        let status = '正常'
+        if (profitRate > 10) status = '优秀'
+        else if (profitRate < -10) status = '需关注'
+        
+        return [{
+          name: '投资组合',
+          totalInvested: totalInvested,
+          currentValue: latestRecord.totalMarketValue,
+          profitAmount,
+          profitRate,
+          weight: 100,
+          status
+        }]
+      }
+      
+      // 处理多产品数据
       const totalMarketValue = latestRecord.totalMarketValue
+      const productAnalyses = []
       
-      // 由于新格式没有产品详情，我们创建一个简化的分析
-      const totalInvested = totalMarketValue - latestRecord.weeklyInvestment
-      const profitAmount = totalMarketValue - totalInvested
-      const profitRate = totalInvested > 0 ? (profitAmount / totalInvested) * 100 : 0
+      latestRecord.productRecords.forEach(productRecord => {
+        const totalInvested = productRecord.totalInvested || 0
+        const currentValue = productRecord.currentMarketValue || 0
+        const profitAmount = currentValue - totalInvested
+        const profitRate = totalInvested > 0 ? (profitAmount / totalInvested) * 100 : 0
+        const weight = totalMarketValue > 0 ? (currentValue / totalMarketValue) * 100 : 0
+        
+        let status = '正常'
+        if (profitRate > 10) status = '优秀'
+        else if (profitRate < -10) status = '需关注'
+        
+        productAnalyses.push({
+          name: productRecord.productName,
+          totalInvested,
+          currentValue,
+          profitAmount,
+          profitRate,
+          weight,
+          status
+        })
+      })
       
-      let status = '正常'
-      if (profitRate > 10) status = '优秀'
-      else if (profitRate < -10) status = '需关注'
-      
-      return [{
-        name: '投资组合',
-        totalInvested: totalInvested,
-        currentValue: totalMarketValue,
-        profitAmount,
-        profitRate,
-        weight: 100,
-        status
-      }]
+      return productAnalyses
     },
     investmentAdvice() {
       const advice = []
@@ -356,8 +389,8 @@ export default {
             itemStyle: {
               color: function(params) {
                 const value = params.value
-                if (value > 0) return '#67C23A'
-                else if (value < 0) return '#F56C6C'
+                if (value > 0) return '#F56C6C'
+                else if (value < 0) return '#67C23A'
                 else return '#909399'
               }
             }
@@ -394,12 +427,12 @@ export default {
 }
 
 .profit {
-  color: #67C23A;
+  color: #F56C6C;
   font-weight: bold;
 }
 
 .loss {
-  color: #F56C6C;
+  color: #67C23A;
   font-weight: bold;
 }
 

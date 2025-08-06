@@ -18,6 +18,7 @@
             <WeeklyCalculation 
               :products="products" 
               :currentWeek="currentWeek"
+              :history="investmentHistory"
               @update:currentWeek="updateCurrentWeek"
               @save-week-data="saveWeekData"
             />

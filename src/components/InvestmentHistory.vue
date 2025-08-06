@@ -47,6 +47,12 @@
             </template>
           </el-table-column>
           
+          <el-table-column prop="totalInvested" label="累计投资" width="120">
+            <template #default="scope">
+              {{ formatMoney(scope.row.totalInvested) }}
+            </template>
+          </el-table-column>
+          
           <el-table-column prop="totalMarketValue" label="总市值" width="120">
             <template #default="scope">
               {{ formatMoney(scope.row.totalMarketValue) }}
@@ -336,16 +342,22 @@ export default {
       return Object.keys(weekGroups).sort((a, b) => parseInt(a) - parseInt(b)).map((week, index) => {
         const weekRecords = weekGroups[week]
         const latestRecord = weekRecords[weekRecords.length - 1] // 取该周最新记录
-        
-        // 计算累计投资金额（从历史记录中累加）
         const weekNumber = parseInt(week)
-        let totalInvested = 0
         
-        // 计算到当前周为止的累计投资
-        const sortedRecords = [...this.history].sort((a, b) => new Date(a.date) - new Date(b.date))
-        for (let i = 0; i <= index; i++) {
-          if (sortedRecords[i]) {
-            totalInvested += sortedRecords[i].totalWeeklyInvestment || 0
+        // 计算累计投资金额：使用产品记录中的totalInvested字段
+        let totalInvested = 0
+        if (latestRecord.productRecords && latestRecord.productRecords.length > 0) {
+          // 如果有产品记录，使用产品记录中的累计投资数据
+          totalInvested = latestRecord.productRecords.reduce((sum, productRecord) => {
+            return sum + (productRecord.totalInvested || 0)
+          }, 0)
+        } else {
+          // 如果没有产品记录，使用历史记录中的累计投资
+          const sortedRecords = [...this.history].sort((a, b) => new Date(a.date) - new Date(b.date))
+          for (let i = 0; i <= index; i++) {
+            if (sortedRecords[i]) {
+              totalInvested += sortedRecords[i].totalWeeklyInvestment || 0
+            }
           }
         }
         
@@ -356,6 +368,7 @@ export default {
           totalMarketValue: latestRecord.totalMarketValue || 0,
           totalTargetValue: latestRecord.totalTargetValue || 0,
           totalProfitRate: latestRecord.totalProfitRate || 0,
+          totalInvested: totalInvested, // 添加累计投资字段
           productRecords: latestRecord.productRecords || [],
           data: weekRecords // 保存该周所有记录用于详情显示
         }
@@ -544,7 +557,7 @@ export default {
         
         const weeks = data.map(item => item.week)
         const totalWeeklyInvestments = data.map(item => item.totalWeeklyInvestment || 0)
-        const totalMarketValues = data.map(item => item.totalMarketValue || 0)
+        const totalInvested = data.map(item => item.totalInvested || 0)
         const totalTargetValues = data.map(item => item.totalTargetValue || 0)
         const totalProfitRates = data.map(item => item.totalProfitRate || 0)
         
@@ -568,7 +581,7 @@ export default {
             }
           },
           legend: {
-            data: ['本周总定投', '总市值', '总目标市值', '总收益率'],
+            data: ['本周总定投', '累计投资', '总目标市值', '总收益率'],
             top: 30
           },
           xAxis: {
@@ -598,9 +611,9 @@ export default {
               smooth: true
             },
             {
-              name: '总市值',
+              name: '累计投资',
               type: 'line',
-              data: totalMarketValues,
+              data: totalInvested,
               yAxisIndex: 0,
               itemStyle: { color: '#67C23A' },
               smooth: true
@@ -639,6 +652,7 @@ export default {
         const currentMarketValues = data.map(item => item.currentMarketValue || 0)
         const targetValues = data.map(item => item.targetValue || 0)
         const weeklyInvestments = data.map(item => item.weeklyInvestment || 0)
+        const totalInvested = data.map(item => item.totalInvested || 0)
         const profitRates = data.map(item => item.profitRate || 0)
         
         title = `${this.getProductName(this.selectedProduct)} - 投资趋势`
@@ -663,7 +677,7 @@ export default {
             }
           },
           legend: {
-            data: ['当前市值', '目标市值', '本周定投', '收益率'],
+            data: ['当前市值', '目标市值', '本周定投', '累计投资', '收益率'],
             top: 30
           },
           xAxis: {
@@ -706,6 +720,14 @@ export default {
               data: weeklyInvestments,
               yAxisIndex: 0,
               itemStyle: { color: '#409EFF' },
+              smooth: true
+            },
+            {
+              name: '累计投资',
+              type: 'line',
+              data: totalInvested,
+              yAxisIndex: 0,
+              itemStyle: { color: '#F56C6C' },
               smooth: true
             },
             {
@@ -762,12 +784,12 @@ export default {
 }
 
 .profit {
-  color: #67C23A;
+  color: #F56C6C;
   font-weight: bold;
 }
 
 .loss {
-  color: #F56C6C;
+  color: #67C23A;
   font-weight: bold;
 }
 

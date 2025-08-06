@@ -171,6 +171,10 @@ export default {
     currentWeek: {
       type: Number,
       required: true
+    },
+    history: {
+      type: Array,
+      required: true
     }
   },
   data() {
@@ -249,12 +253,26 @@ export default {
     },
     getProductTotalInvested(productId) {
       // 累计投资应该是本周之前的累计投资，不包含本周的定投金额
-      return (this.currentWeek - 1) * (this.products.find(p => p.id === productId)?.weeklyAmount || 0)
+      // 需要从历史记录中累加实际投入的金额
+      let totalInvested = 0
+      
+      // 从历史记录中累加该产品之前所有周的定投金额
+      this.history.forEach(record => {
+        if (record.productRecords) {
+          const productRecord = record.productRecords.find(pr => pr.productId === productId)
+          if (productRecord) {
+            totalInvested += productRecord.weeklyInvestment || 0
+          }
+        }
+      })
+      
+      return totalInvested
     },
     getProductProfitRate(productId) {
       const product = this.products.find(p => p.id === productId)
       if (!product) return 0
       
+      // 计算当前累计投资（不包含本周的定投金额）
       const totalInvested = this.getProductTotalInvested(productId)
       const currentValue = this.productData[productId]?.currentMarketValue || 0
       
@@ -312,6 +330,15 @@ export default {
         const newMarketValue = (this.productData[product.id]?.currentMarketValue || 0) + 
                               (this.productData[product.id]?.weeklyInvestment || 0)
         
+        // 计算累计投资：历史累计投资 + 本周定投金额
+        // 注意：本周定投金额可能为负数（获利了结）
+        const historicalTotalInvested = this.getProductTotalInvested(product.id)
+        const weeklyInvestment = this.productData[product.id]?.weeklyInvestment || 0
+        const totalInvestedForRecord = historicalTotalInvested + weeklyInvestment
+        
+        // 计算收益率：基于累计投资计算
+        const profitRateForRecord = totalInvestedForRecord > 0 ? ((newMarketValue - totalInvestedForRecord) / totalInvestedForRecord) * 100 : 0
+        
         return {
           productId: product.id,
           productName: product.name,
@@ -321,8 +348,8 @@ export default {
           weeklyInvestment: this.productData[product.id]?.weeklyInvestment || 0,
           status: this.getInvestmentStatus(this.productData[product.id]?.weeklyInvestment || 0),
           targetValue: this.getProductTargetValue(product),
-          totalInvested: this.getProductTotalInvested(product.id),
-          profitRate: this.getProductProfitRate(product.id)
+          totalInvested: totalInvestedForRecord,
+          profitRate: profitRateForRecord
         }
       })
       
@@ -492,12 +519,12 @@ export default {
 }
 
 .profit {
-  color: #67C23A;
+  color: #F56C6C;
   font-weight: bold;
 }
 
 .loss {
-  color: #F56C6C;
+  color: #67C23A;
   font-weight: bold;
 }
 
